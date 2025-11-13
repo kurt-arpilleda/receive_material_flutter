@@ -455,62 +455,87 @@ class _SoftwareWebViewScreenState extends State<SoftwareWebViewScreen> with Widg
       try {
         String jsCode = '''
 async function injectBarcode() {
-  // First, try to find the mtagField specifically
   const mtagField = document.getElementById('mtagField');
   
-  // If mtagField exists and is visible, use it
   if (mtagField && mtagField.offsetParent !== null) {
     mtagField.focus();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     mtagField.value = '$barcode';
     
-    // Trigger input event
-    mtagField.dispatchEvent(new Event('input', { bubbles: true }));
+    mtagField.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
     await new Promise(resolve => setTimeout(resolve, 50));
     
-    // Trigger change event
-    mtagField.dispatchEvent(new Event('change', { bubbles: true }));
+    mtagField.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
     await new Promise(resolve => setTimeout(resolve, 50));
     
-    // Create and dispatch Enter key sequence with delays
-    const enterEvent = (type) => new KeyboardEvent(type, {
+    const keydownEvent = new KeyboardEvent('keydown', {
       key: 'Enter',
       code: 'Enter',
       keyCode: 13,
       which: 13,
+      charCode: 13,
       bubbles: true,
-      cancelable: true
+      cancelable: true,
+      composed: true,
+      view: window
     });
     
-    mtagField.dispatchEvent(enterEvent('keydown'));
-    await new Promise(resolve => setTimeout(resolve, 20));
+    const keypressEvent = new KeyboardEvent('keypress', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      charCode: 13,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window
+    });
     
-    mtagField.dispatchEvent(enterEvent('keypress'));
-    await new Promise(resolve => setTimeout(resolve, 20));
+    const keyupEvent = new KeyboardEvent('keyup', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      which: 13,
+      charCode: 13,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window
+    });
     
-    mtagField.dispatchEvent(enterEvent('keyup'));
+    mtagField.dispatchEvent(keydownEvent);
     await new Promise(resolve => setTimeout(resolve, 50));
     
-    // Try to submit form if exists
+    mtagField.dispatchEvent(keypressEvent);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    mtagField.dispatchEvent(keyupEvent);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     if (mtagField.form) {
-      mtagField.form.dispatchEvent(new Event('submit', { bubbles: true }));
+      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+      mtagField.form.dispatchEvent(submitEvent);
     }
     
-    // Blur the input field to close keyboard
+    const enterButton = document.querySelector('button[type="submit"]');
+    if (enterButton) {
+      enterButton.click();
+    }
+    
     await new Promise(resolve => setTimeout(resolve, 100));
     mtagField.blur();
     
     return 'success_mtag';
   }
   
-  // If mtagField is not found or not visible, fall back to active element
   const activeElement = document.activeElement;
   
-  // Exclude searchInput from being targeted
   if (activeElement && activeElement.id === 'searchInput') {
     return 'error_search_input_focused';
   }
   
-  // Get all inputs except searchInput
   const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="search"], input[type="number"], textarea'))
     .filter(input => input.id !== 'searchInput');
   
@@ -522,43 +547,67 @@ async function injectBarcode() {
 
   if (!targetInput) return 'no_input_found';
 
-  // Focus and set value
   targetInput.focus();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
   targetInput.value = '$barcode';
 
-  // Trigger input event
-  targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+  targetInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
   await new Promise(resolve => setTimeout(resolve, 50));
 
-  // Trigger change event
-  targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+  targetInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
   await new Promise(resolve => setTimeout(resolve, 50));
 
-  // Create and dispatch Enter key sequence with delays
-  const enterEvent = (type) => new KeyboardEvent(type, {
+  const keydownEvent = new KeyboardEvent('keydown', {
     key: 'Enter',
     code: 'Enter',
     keyCode: 13,
     which: 13,
+    charCode: 13,
     bubbles: true,
-    cancelable: true
+    cancelable: true,
+    composed: true,
+    view: window
+  });
+  
+  const keypressEvent = new KeyboardEvent('keypress', {
+    key: 'Enter',
+    code: 'Enter',
+    keyCode: 13,
+    which: 13,
+    charCode: 13,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window
+  });
+  
+  const keyupEvent = new KeyboardEvent('keyup', {
+    key: 'Enter',
+    code: 'Enter',
+    keyCode: 13,
+    which: 13,
+    charCode: 13,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    view: window
   });
 
-  targetInput.dispatchEvent(enterEvent('keydown'));
-  await new Promise(resolve => setTimeout(resolve, 20));
-
-  targetInput.dispatchEvent(enterEvent('keypress'));
-  await new Promise(resolve => setTimeout(resolve, 20));
-
-  targetInput.dispatchEvent(enterEvent('keyup'));
+  targetInput.dispatchEvent(keydownEvent);
   await new Promise(resolve => setTimeout(resolve, 50));
 
-  // Try to submit form if exists
+  targetInput.dispatchEvent(keypressEvent);
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  targetInput.dispatchEvent(keyupEvent);
+  await new Promise(resolve => setTimeout(resolve, 100));
+
   if (targetInput.form) {
-    targetInput.form.dispatchEvent(new Event('submit', { bubbles: true }));
+    const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+    targetInput.form.dispatchEvent(submitEvent);
   }
 
-  // Blur the input field to close keyboard
   await new Promise(resolve => setTimeout(resolve, 100));
   targetInput.blur();
 
@@ -1256,3 +1305,4 @@ injectBarcode().then(result => result);
     );
   }
 }
+
