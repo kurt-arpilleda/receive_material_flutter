@@ -49,6 +49,7 @@ class _SoftwareWebViewScreenState extends State<SoftwareWebViewScreen> with Widg
   bool _isCountryDialogShowing = false;
   bool _isCountryLoadingPh = false;
   bool _isCountryLoadingJp = false;
+  bool _isModalOpen = false;
 
   @override
   void initState() {
@@ -469,79 +470,46 @@ async function injectBarcode() {
     mtagField.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
     await new Promise(resolve => setTimeout(resolve, 50));
     
-    const keydownEvent = new KeyboardEvent('keydown', {
-      key: 'Enter',
-      code: 'Enter',
-      keyCode: 13,
-      which: 13,
-      charCode: 13,
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      view: window
-    });
-    
-    const keypressEvent = new KeyboardEvent('keypress', {
-      key: 'Enter',
-      code: 'Enter',
-      keyCode: 13,
-      which: 13,
-      charCode: 13,
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      view: window
-    });
-    
-    const keyupEvent = new KeyboardEvent('keyup', {
-      key: 'Enter',
-      code: 'Enter',
-      keyCode: 13,
-      which: 13,
-      charCode: 13,
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      view: window
-    });
-    
-    mtagField.dispatchEvent(keydownEvent);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    mtagField.dispatchEvent(keypressEvent);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    mtagField.dispatchEvent(keyupEvent);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    if (mtagField.form) {
-      const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-      mtagField.form.dispatchEvent(submitEvent);
-    }
-    
-    const enterButton = document.querySelector('button[type="submit"]');
-    if (enterButton) {
-      enterButton.click();
-    }
-    
     await new Promise(resolve => setTimeout(resolve, 100));
     mtagField.blur();
     
     return 'success_mtag';
   }
   
-  const activeElement = document.activeElement;
+  const searchInput = document.getElementById('searchInput');
   
-  if (activeElement && activeElement.id === 'searchInput') {
-    return 'error_search_input_focused';
+  if (searchInput && searchInput.offsetParent !== null) {
+    searchInput.focus();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    searchInput.value = '$barcode';
+    
+    searchInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    searchInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    if (typeof searchMaterials === 'function') {
+      searchMaterials();
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    searchInput.blur();
+    
+    return 'success_search';
   }
   
+  const activeElement = document.activeElement;
+  
   const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="search"], input[type="number"], textarea'))
-    .filter(input => input.id !== 'searchInput');
+    .filter(input => input.id !== 'searchInput' && input.id !== 'mtagField');
   
   const targetInput = activeElement && 
                      (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') &&
-                     activeElement.id !== 'searchInput'
+                     activeElement.id !== 'searchInput' &&
+                     activeElement.id !== 'mtagField'
     ? activeElement 
     : inputs.length > 0 ? inputs[0] : null;
 
@@ -558,56 +526,6 @@ async function injectBarcode() {
   targetInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
   await new Promise(resolve => setTimeout(resolve, 50));
 
-  const keydownEvent = new KeyboardEvent('keydown', {
-    key: 'Enter',
-    code: 'Enter',
-    keyCode: 13,
-    which: 13,
-    charCode: 13,
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    view: window
-  });
-  
-  const keypressEvent = new KeyboardEvent('keypress', {
-    key: 'Enter',
-    code: 'Enter',
-    keyCode: 13,
-    which: 13,
-    charCode: 13,
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    view: window
-  });
-  
-  const keyupEvent = new KeyboardEvent('keyup', {
-    key: 'Enter',
-    code: 'Enter',
-    keyCode: 13,
-    which: 13,
-    charCode: 13,
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    view: window
-  });
-
-  targetInput.dispatchEvent(keydownEvent);
-  await new Promise(resolve => setTimeout(resolve, 50));
-
-  targetInput.dispatchEvent(keypressEvent);
-  await new Promise(resolve => setTimeout(resolve, 50));
-
-  targetInput.dispatchEvent(keyupEvent);
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  if (targetInput.form) {
-    const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-    targetInput.form.dispatchEvent(submitEvent);
-  }
-
   await new Promise(resolve => setTimeout(resolve, 100));
   targetInput.blur();
 
@@ -620,17 +538,7 @@ injectBarcode().then(result => result);
         final result = await webViewController!.evaluateJavascript(source: jsCode);
         print('Barcode injection result: $result');
 
-        if (result == 'error_search_input_focused') {
-          Fluttertoast.showToast(
-            msg: _currentLanguageFlag == 2
-                ? "検索バーが選択されています。正しい入力フィールドを開いてください"
-                : "Search bar is focused. Please open the correct input field",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            backgroundColor: Colors.orange,
-            textColor: Colors.white,
-          );
-        } else {
+        if (result == 'success_mtag' || result == 'success_search' || result == 'success') {
           Fluttertoast.showToast(
             msg: _currentLanguageFlag == 2
                 ? "バーコードが入力されました: $barcode"
@@ -661,8 +569,11 @@ injectBarcode().then(result => result);
     if (webViewController != null) {
       String jsCode = '''
 (function() {
-  let button;
-  let container;
+  let mtagButton;
+  let mtagContainer;
+  let searchButton;
+  let searchContainer;
+  let lastModalState = false;
 
   function isVisible(elem) {
     if (!elem || elem.offsetParent === null) return false;
@@ -675,27 +586,54 @@ injectBarcode().then(result => result);
     return topElem === elem || elem.contains(topElem);
   }
 
-  function updateBarcodeScannerButton() {
+  function checkModalState() {
+    const modals = document.querySelectorAll('.modal, .modal-backdrop, .modal-content, .modal-header, .overlay, [role="dialog"], [aria-modal="true"], .popup, .dialog, [id*="modal"], [class*="Modal"]');
+    let isModalOpen = false;
+    
+    for (let modal of modals) {
+      const style = window.getComputedStyle(modal);
+      if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+        const rect = modal.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          isModalOpen = true;
+          break;
+        }
+      }
+    }
+    
+    if (!isModalOpen) {
+      const bodyStyle = window.getComputedStyle(document.body);
+      if (bodyStyle.overflow === 'hidden' || document.body.classList.contains('modal-open')) {
+        isModalOpen = true;
+      }
+    }
+    
+    if (isModalOpen !== lastModalState) {
+      lastModalState = isModalOpen;
+      window.flutter_inappwebview.callHandler('onModalStateChanged', isModalOpen);
+    }
+  }
+
+  function updateMtagBarcodeScannerButton() {
     const input = document.getElementById('mtagField');
     if (!input) return;
 
     const shouldShow = isVisible(input);
 
-    // If it should be visible and not already added
     if (shouldShow && !input.dataset.hasBarcodeButton) {
       input.dataset.hasBarcodeButton = 'true';
 
-      container = document.createElement('div');
-      container.style.position = 'relative';
-      container.style.display = 'inline-block';
-      container.style.width = '100%';
+      mtagContainer = document.createElement('div');
+      mtagContainer.style.position = 'relative';
+      mtagContainer.style.display = 'inline-block';
+      mtagContainer.style.width = '100%';
 
-      input.parentNode.insertBefore(container, input);
-      container.appendChild(input);
+      input.parentNode.insertBefore(mtagContainer, input);
+      mtagContainer.appendChild(input);
 
-      button = document.createElement('div');
-      button.innerHTML = '𝄃𝄂𝄂𝄀𝄁𝄃';
-      button.style.cssText = \`
+      mtagButton = document.createElement('div');
+      mtagButton.innerHTML = '𝄃𝄂𝄂𝄀𝄁𝄃';
+      mtagButton.style.cssText = \`
         position: absolute;
         right: 8px;
         top: 50%;
@@ -715,30 +653,89 @@ injectBarcode().then(result => result);
         justify-content: center;
       \`;
 
-      button.onclick = function(e) {
+      mtagButton.onclick = function(e) {
         e.stopPropagation();
         window.flutter_inappwebview.callHandler('openBarcodeScanner');
       };
 
-      container.appendChild(button);
+      mtagContainer.appendChild(mtagButton);
     }
 
-    // If the input is now hidden or behind modal, remove the button
-    if (!shouldShow && button && container && container.parentNode) {
+    if (!shouldShow && mtagButton && mtagContainer && mtagContainer.parentNode) {
       input.removeAttribute('data-has-barcode-button');
-      container.parentNode.insertBefore(input, container);
-      container.remove();
-      button = null;
-      container = null;
+      mtagContainer.parentNode.insertBefore(input, mtagContainer);
+      mtagContainer.remove();
+      mtagButton = null;
+      mtagContainer = null;
     }
   }
 
-  // Initial check
-  updateBarcodeScannerButton();
+  function updateSearchBarcodeScannerButton() {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
 
-  // Observe DOM for changes (e.g., modal open/close)
+    const shouldShow = isVisible(input);
+
+    if (shouldShow && !input.dataset.hasSearchBarcodeButton) {
+      input.dataset.hasSearchBarcodeButton = 'true';
+
+      searchContainer = document.createElement('div');
+      searchContainer.style.position = 'relative';
+      searchContainer.style.display = 'inline-block';
+      searchContainer.style.width = '100%';
+
+      input.parentNode.insertBefore(searchContainer, input);
+      searchContainer.appendChild(input);
+
+      searchButton = document.createElement('div');
+      searchButton.innerHTML = '𝄃𝄂𝄂𝄀𝄁𝄃';
+      searchButton.style.cssText = \`
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 9999;
+        background: #3452B4;
+        color: white;
+        padding: 0 4px;
+        border-radius: 4px;
+        font-size: 10px;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        font-family: Arial, sans-serif;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      \`;
+
+      searchButton.onclick = function(e) {
+        e.stopPropagation();
+        window.flutter_inappwebview.callHandler('openBarcodeScanner');
+      };
+
+      searchContainer.appendChild(searchButton);
+    }
+
+    if (!shouldShow && searchButton && searchContainer && searchContainer.parentNode) {
+      input.removeAttribute('data-has-search-barcode-button');
+      searchContainer.parentNode.insertBefore(input, searchContainer);
+      searchContainer.remove();
+      searchButton = null;
+      searchContainer = null;
+    }
+  }
+
+  function updateAllButtons() {
+    updateMtagBarcodeScannerButton();
+    updateSearchBarcodeScannerButton();
+    checkModalState();
+  }
+
+  updateAllButtons();
+
   const observer = new MutationObserver(function() {
-    updateBarcodeScannerButton();
+    updateAllButtons();
   });
 
   observer.observe(document.body, {
@@ -748,8 +745,7 @@ injectBarcode().then(result => result);
     attributeFilter: ['style', 'class']
   });
 
-  // Also check every second in case changes aren't caught by observer
-  setInterval(updateBarcodeScannerButton, 1000);
+  setInterval(updateAllButtons, 500);
 })();
 ''';
 
@@ -992,7 +988,9 @@ injectBarcode().then(result => result);
                           ),
                           SizedBox(height: 20),
                           Padding(
-                            padding: const EdgeInsets.only(left: 16.0),
+                            padding: EdgeInsets.only(
+                              left: _currentLanguageFlag == 2 ? 15.0 : 30.0,
+                            ),
                             child: Row(
                               children: [
                                 Text(
@@ -1010,6 +1008,140 @@ injectBarcode().then(result => result);
                                   iconSize: 28,
                                   onPressed: () {
                                     _showInputMethodPicker();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 15),
+                          Padding(
+                            padding: EdgeInsets.only(
+                              left: _currentLanguageFlag == 2 ? 58.0 : 46.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _currentLanguageFlag == 2
+                                      ? 'メモ'
+                                      : 'Memo',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(width: 15),
+                                IconButton(
+                                  icon: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFE91E63),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: Offset(2, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Transform(
+                                      alignment: Alignment.center,
+                                      transform: Matrix4.identity()..scale(-1.0, 1.0),
+                                      child: Icon(
+                                        Icons.mode_comment_outlined,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    // Close the drawer first
+                                    Navigator.of(context).pop();
+
+                                    if (webViewController != null) {
+                                      try {
+                                        await webViewController!.evaluateJavascript(
+                                          source: "document.getElementById('memoBtn').click();",
+                                        );
+                                      } catch (e) {
+                                        Fluttertoast.showToast(
+                                          msg: _currentLanguageFlag == 2
+                                              ? "メモボタンをクリックできませんでした"
+                                              : "Could not click memo button",
+                                          toastLength: Toast.LENGTH_SHORT,
+                                          gravity: ToastGravity.BOTTOM,
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 15),
+                          Padding(
+                            padding: EdgeInsets.only(
+                              left: _currentLanguageFlag == 2 ? 25.0 : 9.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _currentLanguageFlag == 2 ? 'バグ報告' : 'Bug Report',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(width: 15),
+                                IconButton(
+                                  icon: Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFFE8991A),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: Offset(2, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.bug_report_outlined,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  onPressed: () async {
+                                    // Close the drawer first
+                                    Navigator.of(context).pop();
+
+                                    if (webViewController != null) {
+                                      try {
+                                        await webViewController!.evaluateJavascript(
+                                          source: "openBugReport('test', 'NG Report Software');",
+                                        );
+                                      } catch (e) {
+                                        Fluttertoast.showToast(
+                                          msg: _currentLanguageFlag == 2
+                                              ? "バグ報告を開けませんでした"
+                                              : "Could not open bug report",
+                                          toastLength: Toast.LENGTH_SHORT,
+                                          gravity: ToastGravity.BOTTOM,
+                                        );
+                                      }
+                                    }
                                   },
                                 ),
                               ],
@@ -1225,11 +1357,24 @@ injectBarcode().then(result => result);
                   onWebViewCreated: (controller) {
                     webViewController = controller;
 
-                    // Add handler for barcode scanner
                     controller.addJavaScriptHandler(
                       handlerName: 'openBarcodeScanner',
                       callback: (args) {
                         _openBarcodeScanner();
+                      },
+                    );
+
+                    controller.addJavaScriptHandler(
+                      handlerName: 'onModalStateChanged',
+                      callback: (args) {
+                        if (args.isNotEmpty) {
+                          final isModalOpen = args[0] as bool;
+                          if (mounted) {
+                            setState(() {
+                              _isModalOpen = isModalOpen;
+                            });
+                          }
+                        }
                       },
                     );
                   },
@@ -1301,6 +1446,17 @@ injectBarcode().then(result => result);
             ],
           ),
         ),
+        floatingActionButton: _isModalOpen ? null : FloatingActionButton(
+          onPressed: _openBarcodeScanner,
+          backgroundColor: Color(0xFF3452B4),
+          child: Icon(
+            Icons.qr_code_scanner,
+            color: Colors.white,
+            size: 28,
+          ),
+          tooltip: _currentLanguageFlag == 2 ? 'QRコードをスキャン' : 'Scan QR Code',
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       ),
     );
   }
